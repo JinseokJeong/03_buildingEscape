@@ -20,11 +20,20 @@ class BUILDINGESCAPE_API UGrabber : public UActorComponent
 	UPhysicsHandleComponent* PhysicsHandle = nullptr;
 	UInputComponent* InputComponent = nullptr;
 
+	// Find attached Physics handle
+	void FindPhysicsHandleComponent();
+
+	// Setup Input component
+	void SetupInputComponent();
+
 	// Ray-cast and grab what's in reach
 	void Grab();
 
 	// Called when Grab is released
 	void Release();
+
+	// Return hit for first physics body in reach
+	FHitResult GetFirstPhysicsBodyInReach() const;
 
 public:	
 	// Sets default values for this component's properties 
