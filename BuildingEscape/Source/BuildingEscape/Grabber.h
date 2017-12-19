@@ -32,8 +32,14 @@ class BUILDINGESCAPE_API UGrabber : public UActorComponent
 	// Called when Grab is released
 	void Release();
 
+	// Return current start of reach line
+	FVector GetReachLineStart();
+	
+	// Return current end of reach line
+	FVector GetReachLineEnd();
+
 	// Return hit for first physics body in reach
-	FHitResult GetFirstPhysicsBodyInReach() const;
+	FHitResult GetFirstPhysicsBodyInReach();
 
 public:	
 	// Sets default values for this component's properties 

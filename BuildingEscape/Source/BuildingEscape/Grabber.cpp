@@ -2,9 +2,11 @@
 
 #include "Grabber.h"
 #include "Engine/World.h"
+#include "Components/PrimitiveComponent.h"
+#include "PhysicsEngine/PhysicsHandleComponent.h"
 #include "GameFramework/PlayerController.h"
-#include "DrawDebugHelpers.h"
 #include "GameFramework/Actor.h"
+
 
 #define OUT
 
@@ -29,11 +31,7 @@ void UGrabber::BeginPlay()
  void UGrabber::FindPhysicsHandleComponent()
 {
 	PhysicsHandle = GetOwner()->FindComponentByClass<UPhysicsHandleComponent>();
-	if (PhysicsHandle)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("%s has physics handle component"), *GetOwner()->GetName());
-	}
-	else
+	if (PhysicsHandle == nullptr)
 	{
 		UE_LOG(LogTemp, Error, TEXT("%s missing physics handle component"), *GetOwner()->GetName());
 	}
@@ -42,37 +40,55 @@ void UGrabber::BeginPlay()
 //Setup Input component
  void UGrabber::SetupInputComponent()
  {
-	 // Look for Input component
-	 InputComponent = GetOwner()->FindComponentByClass<UInputComponent>();
-	 if (InputComponent)
-	 {
-		 UE_LOG(LogTemp, Warning, TEXT("Input component found"))
-		 InputComponent->BindAction("Grab", IE_Pressed, this, &UGrabber::Grab);
-		 InputComponent->BindAction("Grab", IE_Released, this, &UGrabber::Release);
-	 }
-	 else
-	 {
-		 UE_LOG(LogTemp, Error, TEXT("%s missing Input component"), *GetOwner()->GetName());
-	 }
+    InputComponent = GetOwner()->FindComponentByClass<UInputComponent>();
+	if (InputComponent)
+	{
+		InputComponent->BindAction("Grab", IE_Pressed, this, &UGrabber::Grab);
+		InputComponent->BindAction("Grab", IE_Released, this, &UGrabber::Release);
+	}
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("%s missing Input component"), *GetOwner()->GetName());
+	}
  }
 
 void UGrabber::Grab()
 {
-	UE_LOG(LogTemp, Warning, TEXT("Grab Working"))
-
 	// Line trace and see if reach any actors with physics body collision channel set
-	GetFirstPhysicsBodyInReach();
+	auto HitResult = GetFirstPhysicsBodyInReach();
+	auto ComponentToGrab = HitResult.GetComponent();
+	auto ActorHit = HitResult.GetActor();
+
 	// If we hit something then attach a physics handle
-	// TODO Attach physics handle
+	if (ActorHit) 
+	{
+		PhysicsHandle->GrabComponentAtLocationWithRotation(
+			ComponentToGrab,
+			NAME_None,
+			ComponentToGrab->GetOwner()->GetActorLocation(),
+			ActorHit->GetActorRotation()
+		);
+	}
 }
 
 void UGrabber::Release()
 {
-	UE_LOG(LogTemp, Warning, TEXT("Release Working"))
-	// TODO Release physics handle
+	PhysicsHandle->ReleaseComponent();
 }
 
-FHitResult UGrabber::GetFirstPhysicsBodyInReach() const
+FVector UGrabber::GetReachLineStart()
+{
+	// Get player viewpoint this tick
+	FVector PlayerViewpointLocation;
+	FRotator PlayerViewpointRotation;
+	GetWorld()->GetFirstPlayerController()->GetPlayerViewPoint(
+		OUT PlayerViewpointLocation,
+		OUT PlayerViewpointRotation
+	);
+	return PlayerViewpointLocation;
+}
+
+FVector UGrabber::GetReachLineEnd()
 {
 	// Get player viewpoint this tick
 	FVector PlayerViewpointLocation;
@@ -82,28 +98,24 @@ FHitResult UGrabber::GetFirstPhysicsBodyInReach() const
 		OUT PlayerViewpointRotation
 	);
 
-	FVector LineTraceEnd = PlayerViewpointLocation + PlayerViewpointRotation.Vector() * Reach;
-
+	return PlayerViewpointLocation + PlayerViewpointRotation.Vector() * Reach;
+	
+}
+	
+FHitResult UGrabber::GetFirstPhysicsBodyInReach() 
+{
+	// Line-trace out to reach distance
+	FHitResult HitResult;
 	FCollisionQueryParams TraceParameters(FName(TEXT("")), false, GetOwner());
-
-	// Ray-cast out to reach distance
-	FHitResult Hit;
 	GetWorld()->LineTraceSingleByObjectType(
-		OUT Hit,
-		PlayerViewpointLocation,
-		LineTraceEnd,
+		OUT HitResult,
+		GetReachLineStart(),
+		GetReachLineEnd(),
 		FCollisionObjectQueryParams(ECollisionChannel::ECC_PhysicsBody),
 		TraceParameters
-	);
+	); 
 
-	// See what we hit
-	AActor* Actorhit = Hit.GetActor();
-	if (Actorhit)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Line trace hit: %s"), *(Actorhit->GetName()));
-	}
-	
-	return Hit;
+	return HitResult;
 }
 
 
@@ -113,8 +125,11 @@ void UGrabber::TickComponent(float DeltaTime, ELevelTick TickType, FActorCompone
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
 	// If the physics handle is attached
+	if (PhysicsHandle->GrabbedComponent)
+	{
 		// Move the object that we're holding
-
+		PhysicsHandle->SetTargetLocation(GetReachLineEnd());
+	}
 }
 
-
+ 
