@@ -17,7 +17,9 @@ class BUILDINGESCAPE_API UGrabber : public UActorComponent
 	UPROPERTY(EditAnywhere)
 	// How far ahead of the player can we reach in cm
 	float Reach = 100.f;
+
 	UPhysicsHandleComponent* PhysicsHandle = nullptr;
+
 	UInputComponent* InputComponent = nullptr;
 
 	// Find attached Physics handle
